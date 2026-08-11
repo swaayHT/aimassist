@@ -13,7 +13,7 @@ public class AimAssistEngine {
     public static double MAX_DISTANCE = 30.0;
     public static double FOV = 60.0;
     public static double AIM_SPEED = 0.25;
-    public static double PREDICTION_OFFSET = 0.5; // Співвідношення випередження / зсуву
+    public static double PREDICTION_OFFSET = 0.5; // Сила випередження/зміщення при русі
 
     private static PlayerEntity currentTarget = null;
 
@@ -72,19 +72,29 @@ public class AimAssistEngine {
     }
 
     private static void aimAtTarget(MinecraftClient mc, Entity target) {
-        // Базова позиція хітбокса (центр тіла/очей)
+        // Базова позиція цілі
         Vec3d targetHitboxPos = new Vec3d(target.getX(), target.getEyeY() - 0.2, target.getZ());
 
-        // Додаємо випередження (Prediction) та зміщення вправо відносно вектора погляду цілі або руху
-        if (PREDICTION_OFFSET > 0) {
-            // Враховуємо швидкість руху цілі (швидкість бігу/польоту)
-            Vec3d targetVelocity = target.getVelocity();
-            targetHitboxPos = targetHitboxPos.add(targetVelocity.multiply(PREDICTION_OFFSET * 5.0));
+        // Отримуємо швидкість руху цілі
+        Vec3d velocity = target.getVelocity();
+        double horizontalSpeed = Math.hypot(velocity.x, velocity.z);
 
-            // Зміщуємо трохи вправо від цілі (перпендикулярно погляду) за допомогою rotation vector
-            Vec3d rotationVec = target.getRotationVector();
-            Vec3d rightVector = new Vec3d(-rotationVec.z, 0, rotationVec.x).normalize();
-            targetHitboxPos = targetHitboxPos.add(rightVector.multiply(PREDICTION_OFFSET));
+        // Якщо ціль рухається (швидкість більша за мінімальний поріг)
+        if (horizontalSpeed > 0.01 && PREDICTION_OFFSET > 0) {
+            // 1. Стандартне випередження по напрямку руху
+            targetHitboxPos = targetHitboxPos.add(velocity.multiply(PREDICTION_OFFSET * 4.0));
+
+            // 2. Визначаємо, куди саме рухається гравець відносно нашого екрану (вправо чи вліво)
+            Vec3d playerLookVec = mc.player.getRotationVector();
+            // Перпендикулярний вектор (праворуч від нашого погляду)
+            Vec3d rightVector = new Vec3d(-playerLookVec.z, 0, playerLookVec.x).normalize();
+
+            // Скалярний добуток визначає, чи біжить ціль праворуч чи ліворуч від нас
+            Vec3d moveDir = new Vec3d(velocity.x, 0, velocity.z).normalize();
+            double sideMultiplier = moveDir.dotProduct(rightVector);
+
+            // Зміщуємо приціл в той бік, куди він рухається (вправо або вліво)
+            targetHitboxPos = targetHitboxPos.add(rightVector.multiply(sideMultiplier * PREDICTION_OFFSET));
         }
 
         Vec3d eyePos = mc.player.getEyePos();
@@ -103,11 +113,9 @@ public class AimAssistEngine {
         float yawDelta = MathHelper.wrapDegrees(targetYaw - currentYaw);
         float pitchDelta = targetPitch - currentPitch;
 
-        // Плавне згладжування (множимо на AIM_SPEED) і обмеження ривків
         float newYaw = currentYaw + (yawDelta * (float) AIM_SPEED);
         float newPitch = currentPitch + (pitchDelta * (float) AIM_SPEED);
 
-        // Застосовуємо значення до камери гравця без зайвого тремтіння
         mc.player.setYaw(newYaw);
         mc.player.setPitch(MathHelper.clamp(newPitch, -90.0F, 90.0F));
     }
