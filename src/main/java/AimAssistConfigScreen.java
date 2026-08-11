@@ -13,7 +13,7 @@ public class AimAssistConfigScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int startY = this.height / 4;
+        int startY = this.height / 4 - 20;
 
         // Toggle Main Aim
         this.addDrawableChild(ButtonWidget.builder(
@@ -61,8 +61,22 @@ public class AimAssistConfigScreen extends Screen {
             }
         });
 
-        // Slider Distance
+        // Slider Prediction Offset (Налаштування зміщення/випередження)
         this.addDrawableChild(new SliderWidget(centerX - 100, startY + 100, 200, 20, 
+                Text.literal("Prediction: " + String.format("%.2f", AimAssistEngine.PREDICTION_OFFSET)), AimAssistEngine.PREDICTION_OFFSET / 3.0) {
+            @Override
+            protected void updateMessage() {
+                setMessage(Text.literal("Prediction: " + String.format("%.2f", AimAssistEngine.PREDICTION_OFFSET)));
+            }
+
+            @Override
+            protected void applyValue() {
+                AimAssistEngine.PREDICTION_OFFSET = this.value * 3.0; // від 0 до 3 блоків зміщення
+            }
+        });
+
+        // Slider Distance
+        this.addDrawableChild(new SliderWidget(centerX - 100, startY + 125, 200, 20, 
                 Text.literal("Max Range: " + (int) AimAssistEngine.MAX_DISTANCE), (AimAssistEngine.MAX_DISTANCE - 5) / 45.0) {
             @Override
             protected void updateMessage() {
@@ -77,13 +91,13 @@ public class AimAssistConfigScreen extends Screen {
 
         // Close Button
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Done"), button -> this.close())
-                .dimensions(centerX - 100, startY + 135, 200, 20).build());
+                .dimensions(centerX - 100, startY + 155, 200, 20).build());
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         this.renderBackground(context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 20, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 10, 0xFFFFFF);
         super.render(context, mouseX, mouseY, delta);
     }
 }
