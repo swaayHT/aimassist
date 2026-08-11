@@ -13,7 +13,11 @@ public class AimAssistEngine {
     public static double MAX_DISTANCE = 30.0;
     public static double FOV = 60.0;
     public static double AIM_SPEED = 0.25;
-    public static double PREDICTION_OFFSET = 0.5; // Сила випередження/зміщення при русі
+    
+    // Множник випередження (можеш регулювати у меню від 0 до 2-3)
+    public static double PREDICTION_OFFSET = 1.0; 
+    // Швидкість снаряда (підлаштуй під зброю, чим швидший снаряд, тим менше випередження)
+    public static double BULLET_SPEED = 3.0; 
 
     private static PlayerEntity currentTarget = null;
 
@@ -72,29 +76,28 @@ public class AimAssistEngine {
     }
 
     private static void aimAtTarget(MinecraftClient mc, Entity target) {
-        // Базова позиція цілі
+        // Базова позиція хітбокса цілі (трохи нижче очей, центр тіла)
         Vec3d targetHitboxPos = new Vec3d(target.getX(), target.getEyeY() - 0.2, target.getZ());
 
-        // Отримуємо швидкість руху цілі
-        Vec3d velocity = target.getVelocity();
-        double horizontalSpeed = Math.hypot(velocity.x, velocity.z);
-
-        // Якщо ціль рухається (швидкість більша за мінімальний поріг)
-        if (horizontalSpeed > 0.01 && PREDICTION_OFFSET > 0) {
-            // 1. Стандартне випередження по напрямку руху
-            targetHitboxPos = targetHitboxPos.add(velocity.multiply(PREDICTION_OFFSET * 4.0));
-
-            // 2. Визначаємо, куди саме рухається гравець відносно нашого екрану (вправо чи вліво)
-            Vec3d playerLookVec = mc.player.getRotationVector();
-            // Перпендикулярний вектор (праворуч від нашого погляду)
-            Vec3d rightVector = new Vec3d(-playerLookVec.z, 0, playerLookVec.x).normalize();
-
-            // Скалярний добуток визначає, чи біжить ціль праворуч чи ліворуч від нас
-            Vec3d moveDir = new Vec3d(velocity.x, 0, velocity.z).normalize();
-            double sideMultiplier = moveDir.dotProduct(rightVector);
-
-            // Зміщуємо приціл в той бік, куди він рухається (вправо або вліво)
-            targetHitboxPos = targetHitboxPos.add(rightVector.multiply(sideMultiplier * PREDICTION_OFFSET));
+        // Розрахунок балістичного випередження (Prediction)
+        if (PREDICTION_OFFSET > 0) {
+            Vec3d eyePos = mc.player.getEyePos();
+            double distance = eyePos.distanceTo(targetHitboxPos);
+            
+            // Час, за який снаряд долетить до цілі
+            double timeToTarget = distance / Math.max(0.1, BULLET_SPEED);
+            
+            // Отримуємо реальну швидкість гравця (швидкість бігу вліво, вправо, вперед тощо)
+            Vec3d velocity = target.getVelocity();
+            
+            // Множимо швидкість на час польоту — отримуємо точку, де гравець опиниться в момент прильоту снаряда
+            Vec3d predictedFuturePos = targetHitboxPos.add(
+                velocity.x * timeToTarget * PREDICTION_OFFSET * 20.0,
+                0, // Зберігаємо висоту, щоб не задирати приціл у небо
+                velocity.z * timeToTarget * PREDICTION_OFFSET * 20.0
+            );
+            
+            targetHitboxPos = predictedFuturePos;
         }
 
         Vec3d eyePos = mc.player.getEyePos();
