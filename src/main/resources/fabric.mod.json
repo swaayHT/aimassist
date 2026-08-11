@@ -1,1 +1,17 @@
-
+{
+  "schemaVersion": 1,
+  "id": "aimassist",
+  "version": "1.0.0",
+  "name": "Aim Assist Mod",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "AimAssistClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21"
+  }
+}
