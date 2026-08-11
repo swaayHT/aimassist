@@ -18,10 +18,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build with Gradle
-        run: gradle build
+        run: gradle build --no-daemon
+
+      - name: Check output directory
+        run: ls -la build/libs/
 
       - name: Upload Mod Jar
         uses: actions/upload-artifact@v4
         with:
           name: AimAssist-1.21.4
-          path: build/libs/*.jar
+          path: build/libs/
