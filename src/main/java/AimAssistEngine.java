@@ -13,8 +13,7 @@ public class AimAssistEngine {
     public static double MAX_DISTANCE = 30.0;
     public static double FOV = 60.0;
     public static double AIM_SPEED = 0.25;
-    public static double PREDICTION_OFFSET = 1.0;
-    public static double BULLET_SPEED = 3.5;
+    public static double PREDICTION_OFFSET = 0.5; // Співвідношення випередження / зсуву
 
     private static PlayerEntity currentTarget = null;
 
@@ -73,13 +72,19 @@ public class AimAssistEngine {
     }
 
     private static void aimAtTarget(MinecraftClient mc, Entity target) {
+        // Базова позиція хітбокса (центр тіла/очей)
         Vec3d targetHitboxPos = new Vec3d(target.getX(), target.getEyeY() - 0.2, target.getZ());
 
+        // Додаємо випередження (Prediction) та зміщення вправо відносно вектора погляду цілі або руху
         if (PREDICTION_OFFSET > 0) {
-            double distance = mc.player.distanceTo(target);
-            double timeToTarget = distance / Math.max(0.1, BULLET_SPEED);
-            Vec3d predictedMovement = target.getVelocity().multiply(timeToTarget * 20.0);
-            targetHitboxPos = targetHitboxPos.add(predictedMovement.multiply(PREDICTION_OFFSET));
+            // Враховуємо швидкість руху цілі (швидкість бігу/польоту)
+            Vec3d targetVelocity = target.getVelocity();
+            targetHitboxPos = targetHitboxPos.add(targetVelocity.multiply(PREDICTION_OFFSET * 5.0));
+
+            // Зміщуємо трохи вправо від цілі (перпендикулярно погляду) за допомогою rotation vector
+            Vec3d rotationVec = target.getRotationVector();
+            Vec3d rightVector = new Vec3d(-rotationVec.z, 0, rotationVec.x).normalize();
+            targetHitboxPos = targetHitboxPos.add(rightVector.multiply(PREDICTION_OFFSET));
         }
 
         Vec3d eyePos = mc.player.getEyePos();
@@ -92,12 +97,17 @@ public class AimAssistEngine {
         float targetYaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90.0F;
         float targetPitch = (float) -Math.toDegrees(Math.atan2(dy, horizontalDistance));
 
-        float yawDelta = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
-        float pitchDelta = targetPitch - mc.player.getPitch();
+        float currentYaw = mc.player.getYaw();
+        float currentPitch = mc.player.getPitch();
 
-        float newYaw = mc.player.getYaw() + (float) (yawDelta * AIM_SPEED);
-        float newPitch = mc.player.getPitch() + (float) (pitchDelta * AIM_SPEED);
+        float yawDelta = MathHelper.wrapDegrees(targetYaw - currentYaw);
+        float pitchDelta = targetPitch - currentPitch;
 
+        // Плавне згладжування (множимо на AIM_SPEED) і обмеження ривків
+        float newYaw = currentYaw + (yawDelta * (float) AIM_SPEED);
+        float newPitch = currentPitch + (pitchDelta * (float) AIM_SPEED);
+
+        // Застосовуємо значення до камери гравця без зайвого тремтіння
         mc.player.setYaw(newYaw);
         mc.player.setPitch(MathHelper.clamp(newPitch, -90.0F, 90.0F));
     }
